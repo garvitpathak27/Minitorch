@@ -1,0 +1,26 @@
+YOU                 CONTROL PLANE              NODE AGENT
+ │                       │                          │
+ │  POST /nodes          │                          │
+ │─────────────────────▶ │  nodes["node-1"] = Node  │
+ │                       │                          │
+ │  POST /workloads      │                          │
+ │─────────────────────▶ │  workloads["ebb3df5b"]   │
+ │                       │  = Workload(replicas=2)  │
+ │                       │                          │
+ │                       │  [reconciler wakes up]   │
+ │                       │  actual=0 desired=2      │
+ │                       │  POST /containers ───────▶  fork()
+ │                       │                          │  namespaces
+ │                       │                          │  cgroups
+ │                       │                          │  execvp("sleep")
+ │                       │  ◀─────────── {id: "09da530d"}
+ │                       │  node.containers.append  │
+ │                       │  POST /containers ───────▶  fork()
+ │                       │  ◀─────────── {id: "20e2fa9b"}
+ │                       │  node.containers.append  │
+ │                       │                          │
+ │  GET /nodes           │                          │
+ │─────────────────────▶ │                          │
+ │  ◀──── containers:    │                          │
+ │    ["ebb3df5b_09da",  │                          │
+ │     "ebb3df5b_20e2"]  │                          │
