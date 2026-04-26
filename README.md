@@ -1,5 +1,4 @@
 
-
 # 🚢 MiniOrch: A Distributed Container Orchestrator & Consensus Engine
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue?style=flat-square&logo=python)
@@ -89,8 +88,8 @@ CONSENSUS CLUSTER (Ports 5001, 5002, 5003)
 
 Clone the repository and set up the backend:
 ```bash
-git clone https://github.com/yourusername/miniorch.git
-cd miniorch
+git clone https://github.com/garvitpathak27/minitorch.git
+cd minitorch
 
 python3 -m venv venv
 source venv/bin/activate
