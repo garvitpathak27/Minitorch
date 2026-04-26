@@ -1,0 +1,1 @@
+{"term": 68, "voted_for": "node3", "log": [{"term": 57, "index": 0, "command": "FIRST_COMMAND"}, {"term": 63, "index": 1, "command": "UNLOCK_COMMAND"}]}
