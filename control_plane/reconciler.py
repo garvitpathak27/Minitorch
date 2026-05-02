@@ -1,91 +1,110 @@
-import time 
+import time
 import requests
-from control_plane.state import nodes , workloads
 from control_plane.scheduler import pick_node
 
 
-def reconcile_once():
-    for node in nodes.values():
-        if time.time() - node.last_seen > 30 and node.containers:
-            print(f"node {node.id} is dead - clearing its container for rescheduling")
-            node.containers = []
+class Reconciler:
+    def __init__(self, cluster_state):
+        """
+        Receives the active ClusterState object from main.py
+        so it knows what the current desired workloads are.
+        """
+        self.state = cluster_state
 
-    for workload in workloads.values():
-        actual = sum(
-            1 for node in nodes.values()
-            for cid in node.containers
-            if cid.startswith(workload.id)
-        )
-        desired = workload.replicas
+    def reconcile(self):
+        """
+        Runs continuously (called by main.py).
+        Checks actual cluster state vs desired state and issues HTTP commands.
+        """
 
-        print(f"workload {workload.id} -> desired : {desired} :: actual : {actual}")
+        for node in list(self.state.nodes.values()):
+            if time.time() - node.last_seen > 30 and node.containers:
+                print(
+                    f"⚠️ [Reconciler] Node {node.id} is dead! Clearing its containers for rescheduling."
+                )
+                node.containers = []
 
+        for workload in list(self.state.workloads.values()):
 
-        if actual < desired:
-            for _ in range(desired - actual):
-                alive_nodes = {
-                    nid: node for nid , node in nodes.items()
-                    if time.time() - node.last_seen < 30
-                }
-                if not alive_nodes:
-                    print("no alive nodes available to schedule ")
-                    break
+            actual = sum(
+                1
+                for node in self.state.nodes.values()
+                for cid in node.containers
+                if cid.startswith(workload.id)
+            )
+            desired = workload.replicas
 
-                node  = pick_node(alive_nodes)
-                if node is None:
-                    break
-                try:
-                    response = requests.post(
-                        f"http://{node.address}/containers",
-                        json={
-                            "image_path": workload.image_path,
-                            "command": workload.command,
-                            "cpu_limit_percent": workload.cpu_limit_percent,
-                            "memory_limit_bytes": workload.memory_limit_bytes,
-                        }
-                    )
-                    if response.status_code == 201:
-                        data = response.json()
-                        node.containers.append(f"{workload.id}_{data['id']}")
-                        print(f"started container {data['id']} on node {node.id}")
-                    else:
-                        print(f"node {node.id} rejected container: {response.text}")
+            if actual != desired:
+                print(
+                    f"🔄 [Reconciler] Workload {workload.id} -> Desired: {desired} | Actual: {actual}"
+                )
 
-                except requests.exceptions.RequestException as e:
-                    print(f"failed to reach node {node.id}: {e}")
-        elif actual > desired:
-            excess = actual - desired
-
-            for node in nodes.values():
-                if excess == 0:
-                    break
-                to_remove = [
-                    cid for cid in node.containers
-                    if cid.startswith(workload.id)
-
-                ]   
-                for cid in to_remove:
-                    if excess ==0:
+            if actual < desired:
+                for _ in range(desired - actual):
+                    alive_nodes = {
+                        nid: node
+                        for nid, node in self.state.nodes.items()
+                        if time.time() - node.last_seen < 30
+                    }
+                    if not alive_nodes:
+                        print("❌ [Reconciler] No alive nodes available to schedule!")
                         break
 
-                    real_id = cid.split("_")[1]
+                    node = pick_node(alive_nodes)
+                    if node is None:
+                        break
 
                     try:
-                        requests.delete(
-                            f"http://{node.address}/containers/{real_id}"
+                        response = requests.post(
+                            f"http://{node.address}/containers",
+                            json={
+                                "image_path": workload.image_path,
+                                "command": workload.command,
+                                "cpu_limit_percent": workload.cpu_limit_percent,
+                                "memory_limit_bytes": workload.memory_limit_bytes,
+                            },
+                            timeout=2,
                         )
-                        node.containers.remove(cid)
-                        excess -=1
-                        print(f"stopped containder {real_id} on the node {node.id}") 
+                        if response.status_code == 201:
+                            data = response.json()
+                            node.containers.append(f"{workload.id}_{data['id']}")
+                            print(
+                                f"✅ [Reconciler] Started container {data['id']} on node {node.id}"
+                            )
+                        else:
+                            print(
+                                f"⚠️ [Reconciler] Node {node.id} rejected container: {response.text}"
+                            )
 
                     except requests.exceptions.RequestException as e:
-                        print(f"failed to reach node {node.id}: {e}")
+                        print(f"⚠️ [Reconciler] Failed to reach node {node.id}: {e}")
 
+            elif actual > desired:
+                excess = actual - desired
 
-def reconcile_loop():
-    while True:
-        try:
-            reconcile_once()
-        except Exception as e:
-            print(f"reconciler error: {e}")
-        time.sleep(5)
+                for node in self.state.nodes.values():
+                    if excess == 0:
+                        break
+
+                    to_remove = [
+                        cid for cid in node.containers if cid.startswith(workload.id)
+                    ]
+
+                    for cid in to_remove:
+                        if excess == 0:
+                            break
+
+                        real_id = cid.split("_")[1]
+
+                        try:
+                            requests.delete(
+                                f"http://{node.address}/containers/{real_id}", timeout=2
+                            )
+                            node.containers.remove(cid)
+                            excess -= 1
+                            print(
+                                f"🛑 [Reconciler] Stopped container {real_id} on node {node.id}"
+                            )
+
+                        except requests.exceptions.RequestException as e:
+                            print(f"⚠️ [Reconciler] Failed to reach node {node.id}: {e}")

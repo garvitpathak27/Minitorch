@@ -25,77 +25,54 @@ import os
 
 class ConsensusNode:
 
-    def __init__(self, node_id: str, peers: List[str]):
+    def __init__(self, node_id: str, peers: List[str], on_commit_callback=None):
 
-        # =========================
-        # Identity
-        # =========================
         self.node_id = node_id
         self.peers = peers
 
-        # =========================
-        # Raft persistent state
-        # =========================
         self.current_term = 0
         self.voted_for: Optional[str] = None
         self.log: List[LogEntry] = []
 
-        # =========================
-        # Raft volatile state
-        # =========================
         self.commit_index = -1
         self.last_applied = -1
 
-        # =========================
-        # Leader state
-        # =========================
         self.next_index: Dict[str, int] = {}
         self.match_index: Dict[str, int] = {}
 
-        # =========================
-        # Role + timing
-        # =========================
         self.role = NodeRole.FOLLOWER
         self.last_heartbeat = time.time()
         self.election_timeout = random.uniform(1.5, 3.0)
 
-        # =========================
-        # Cabinet (weights)
-        # =========================
         self.weight_manager = WeightManager([node_id] + peers)
 
-        # =========================
-        # Election tracking
-        # =========================
         self.pending_votes: List[str] = []
 
-        # =========================
-        # Proxy system
-        # =========================
         self.proxy_leaders: List[str] = []
         self.proxy_map: Dict[str, List[str]] = {}
 
-        # Proxy aggregation state
         self.proxy_nodes: List[str] = []
         self.proxy_expected: List[str] = []
         self.proxy_responses: Dict[str, Message] = {}
 
-        # =========================
-        # Leader tracking
-        # =========================
         self.leader_id: Optional[str] = None
 
-        # =========================
-        # Latency tracking (Cabinet)
-        # =========================
         self.rpc_start_times = {}
+
+        self.repeated_election_attempts = 0
+        self.MAX_ELECTION_ATTEMPTS = 5
+        self.is_muted = False
+
+        self.MEMBER_TIMEOUT = 10.0
+        self.peer_last_seen: Dict[str, float] = {peer: time.time() for peer in peers}
+
+        self.on_commit_callback = on_commit_callback
 
         self.load_state()
 
-    
     def _state_file(self):
         return f"node_{self.node_id}_state.json"
-    
+
     def save_state(self):
         data = {
             "term": self.current_term,
@@ -111,23 +88,33 @@ class ConsensusNode:
     def load_state(self):
         if not os.path.exists(self._state_file()):
             return
-        
+
         with open(self._state_file(), "r") as f:
             data = json.load(f)
-        
+
         self.current_term = data["term"]
         self.voted_for = data["voted_for"]
-        self.log = [
-            LogEntry(e["term"], e["index"], e["command"])
-            for e in data["log"]
-        ]
-        print(f"[{self.node_id}] state loaded | term={self.current_term} log_len={len(self.log)}")
-    
-    
-    # =====================================================
-    # Election
-    # =====================================================
+        self.log = [LogEntry(e["term"], e["index"], e["command"]) for e in data["log"]]
+        print(
+            f"[{self.node_id}] state loaded | term={self.current_term} log_len={len(self.log)}"
+        )
+
     def start_election(self):
+
+        if self.is_muted:
+            print(f"Node {self.node_id} is muted . skipping elections")
+            return
+
+        self.repeated_election_attempts += 1
+
+        if self.repeated_election_attempts > self.MAX_ELECTION_ATTEMPTS:
+            print(
+                f"Node {self.node_id} failed {self.MAX_ELECTION_ATTEMPTS} election in a row. Assuming network issues and muting itself."
+            )
+            self.is_muted = True
+            self.role = NodeRole.FOLLOWER
+            return
+
         self.role = NodeRole.CANDIDATE
         self.current_term += 1
         self.voted_for = self.node_id
@@ -198,9 +185,6 @@ class ConsensusNode:
 
         print(f"[{self.node_id}] vote from {message.source} → {message.vote_granted}")
 
-    # =====================================================
-    # Become Leader
-    # =====================================================
     def become_leader(self):
 
         self.role = NodeRole.LEADER
@@ -216,9 +200,6 @@ class ConsensusNode:
 
         print(f"[{self.node_id}] 🚀 BECAME LEADER")
 
-    # =====================================================
-    # Proxy assignment
-    # =====================================================
     def _appoint_proxies(self):
 
         num_proxies = max(1, len(self.peers) // 2)
@@ -241,43 +222,6 @@ class ConsensusNode:
                 )
             )
 
-    # =====================================================
-    # Heartbeats
-    # =====================================================
-    def send_heartbeats(self):
-
-        if self.role != NodeRole.LEADER:
-            return
-
-        for peer in self.proxy_leaders if self.proxy_leaders else self.peers:
-
-            next_idx = self.next_index.get(peer, len(self.log))
-
-            prev_index = next_idx - 1
-            prev_term = (
-                self.log[prev_index].term
-                if prev_index >= 0 and prev_index < len(self.log)
-                else 0
-            )
-
-            # 🧠 KEY: send missing entries if follower is behind
-            entries = self.log[next_idx:]
-
-            self.send_message(
-                Message(
-                    type=MessageType.APPEND_ENTRIES,
-                    term=self.current_term,
-                    source=self.node_id,
-                    destination=peer,
-                    prev_log_index=prev_index,
-                    prev_log_term=prev_term,
-                    entries=entries,
-                    leader_commit=self.commit_index,
-                )
-            )
-    # =====================================================
-    # Client command
-    # =====================================================
     def submit_command(self, command):
 
         if self.role != NodeRole.LEADER:
@@ -292,9 +236,6 @@ class ConsensusNode:
         self.replicate_log()
         return True
 
-    # =====================================================
-    # Replication (Leader → Proxy)
-    # =====================================================
     def replicate_log(self):
 
         targets = self.proxy_leaders if self.proxy_leaders else self.peers
@@ -317,23 +258,32 @@ class ConsensusNode:
                 )
             )
 
-    # =====================================================
-    # Handle append entries (Follower / Proxy)
-    # =====================================================
-    
     def handle_append_entries(self, message: Message):
-            """
-            Handles incoming AppendEntries messages from the leader.
-            This serves as both a heartbeat (empty entries) and the mechanism for log replication.
-            """
-            
-            # 1. Acknowledge the leader's identity so we know who to route client requests to
-            self.leader_id = message.source
+        """
+        Handles incoming AppendEntries messages from the leader.
+        This serves as both a heartbeat (empty entries) and the mechanism for log replication.
+        """
 
-            # 2. Term Check (Raft Safety Rule)
-            # If the incoming message is from an older term, reject it. 
-            # This prevents "ghost" leaders from a partitioned network from overwriting good data.
-            if message.term < self.current_term:
+        self.leader_id = message.source
+
+        if message.term < self.current_term:
+            return
+
+        self.repeated_election_attempts = 0
+
+        if self.is_muted:
+            print(
+                f"[{self.node_id}] Network healed! Heard leader {message.source}. Unmuting."
+            )
+            self.is_muted = False
+
+        if self.role != NodeRole.PROXY:
+            self.role = NodeRole.FOLLOWER
+
+        self.last_heartbeat = time.time()
+
+        if message.prev_log_index != -1:
+            if message.prev_log_index >= len(self.log):
                 return Message(
                     type=MessageType.APPEND_ENTRIES_RESPONSE,
                     term=self.current_term,
@@ -342,92 +292,54 @@ class ConsensusNode:
                     success=False,
                 )
 
-            # 3. Role & Timeout Reset
-            # If we are a candidate or leader but see a valid AppendEntries, we must step down to follower.
-            # Note: We preserve the PROXY role if we have been appointed one by the leader.
-            if self.role != NodeRole.PROXY:
-                self.role = NodeRole.FOLLOWER
+        if message.entries:
+            self.log = self.log[: message.prev_log_index + 1]
+            self.log.extend(message.entries)
 
-            # Reset the election timer so we don't start an election while the leader is active.
-            self.last_heartbeat = time.time()
+            self.save_state()
 
-            # 4. Log Consistency Check (Raft Safety Rule)
-            # We must ensure our log matches the leader's log up to the point of `prev_log_index`.
-            # If we are missing entries (our log is shorter than prev_log_index), we reject.
-            # The leader will then backtrack and send earlier entries until we match.
-            if message.prev_log_index != -1:
-                if message.prev_log_index >= len(self.log):
-                    return Message(
-                        type=MessageType.APPEND_ENTRIES_RESPONSE,
+        if (
+            message.leader_commit is not None
+            and message.leader_commit > self.commit_index
+        ):
+
+            self.commit_index = min(message.leader_commit, len(self.log) - 1)
+
+            self.apply_committed_entries()
+
+        if self.role == NodeRole.PROXY and self.proxy_nodes:
+
+            self.proxy_responses = {}
+
+            for follower in self.proxy_nodes:
+                print(f"[{self.node_id}] forwarding → {follower}")
+
+                self.send_message(
+                    Message(
+                        type=MessageType.APPEND_ENTRIES,
                         term=self.current_term,
                         source=self.node_id,
-                        destination=message.source,
-                        success=False,
+                        destination=follower,
+                        prev_log_index=message.prev_log_index,
+                        prev_log_term=message.prev_log_term,
+                        entries=message.entries,
+                        leader_commit=message.leader_commit,
                     )
+                )
 
-            # 5. Append New Entries & Persist
-            # If the leader sent new logs, slice off any conflicting uncommitted logs 
-            # (everything after prev_log_index) and append the new authoritative entries.
-            if message.entries:
-                self.log = self.log[: message.prev_log_index + 1]
-                self.log.extend(message.entries)
-                
-                # Save to disk immediately so we don't lose data if we crash right after this
-                self.save_state()   
+        return Message(
+            type=MessageType.APPEND_ENTRIES_RESPONSE,
+            term=self.current_term,
+            source=self.node_id,
+            destination=message.source,
+            success=True,
+            match_index=len(self.log) - 1,
+        )
 
-            # 6. Commit & Apply (The Fix)
-            # If the leader tells us that logs have been securely committed across the cluster,
-            # we must update our own commit index. 
-            if message.leader_commit is not None and message.leader_commit > self.commit_index:
-                # We commit up to the leader's index, OR the end of our own log (whichever is smaller)
-                # This prevents us from trying to commit logs we haven't received yet.
-                self.commit_index = min(message.leader_commit, len(self.log) - 1)
-                
-                # Now actually execute those commands in the state machine
-                self.apply_committed_entries()
-
-            # 7. Proxy Forwarding (Custom RaftOptima Logic)
-            # If this node is a designated proxy, it must forward this heartbeat/payload
-            # to its assigned sub-followers to relieve network pressure on the main leader.
-            if self.role == NodeRole.PROXY and self.proxy_nodes:
-                
-                # Reset responses tracker for this specific broadcast
-                self.proxy_responses = {}
-
-                for follower in self.proxy_nodes:
-                    print(f"[{self.node_id}] forwarding → {follower}")
-
-                    self.send_message(
-                        Message(
-                            type=MessageType.APPEND_ENTRIES,
-                            term=self.current_term,
-                            source=self.node_id,
-                            destination=follower,
-                            prev_log_index=message.prev_log_index,
-                            prev_log_term=message.prev_log_term,
-                            entries=message.entries,
-                            leader_commit=message.leader_commit, # Pass down the commit index!
-                        )
-                    )
-
-            # 8. Success Response
-            # Tell the leader (or proxy) that we successfully processed the heartbeat/append.
-            # We include our current log length so the leader knows exactly where we are.
-            return Message(
-                type=MessageType.APPEND_ENTRIES_RESPONSE,
-                term=self.current_term,
-                source=self.node_id,
-                destination=message.source,
-                success=True,
-                match_index=len(self.log) - 1,
-            )
-    
-    # =====================================================
-    # Handle responses
-    # =====================================================
     def handle_append_entries_response(self, message: Message):
 
-        # ===== PROXY AGGREGATION =====
+        self.peer_last_seen[message.source] = time.time()
+
         if self.role == NodeRole.PROXY:
 
             self.proxy_responses[message.source] = message
@@ -454,14 +366,11 @@ class ConsensusNode:
             self.proxy_responses = {}
             return
 
-        # ===== LEADER HANDLING =====
         if self.role != NodeRole.LEADER:
             return
 
-        # ✅ FIXED RETRY LOGIC (SAFE)
         if not message.success:
 
-            # prevent negative index
             self.next_index[message.source] = max(
                 0, self.next_index[message.source] - 1
             )
@@ -474,9 +383,11 @@ class ConsensusNode:
                 else 0
             )
 
-            entries = self.log[self.next_index[message.source]:]
+            entries = self.log[self.next_index[message.source] :]
 
-            print(f"[{self.node_id}] retrying → {message.source} from index {self.next_index[message.source]}")
+            print(
+                f"[{self.node_id}] retrying → {message.source} from index {self.next_index[message.source]}"
+            )
 
             self.send_message(
                 Message(
@@ -493,14 +404,67 @@ class ConsensusNode:
 
             return
 
-        # success case
         self.match_index[message.source] = message.match_index
         self.next_index[message.source] = message.match_index + 1
 
         self._update_commit_index()
-    # =====================================================
-    # Commit logic
-    # =====================================================
+
+    def send_heartbeats(self):
+
+        if self.role != NodeRole.LEADER:
+            return
+
+        current_time = time.time()
+        dead_nodes = []
+
+        for peer, last_seen in list(self.peer_last_seen.items()):
+            if current_time - last_seen > self.MEMBER_TIMEOUT:
+                dead_nodes.append(peer)
+
+        if dead_nodes:
+            for dead_node in dead_nodes:
+                print(
+                    f"[{self.node_id}] ⚠️ Peer {dead_node} timed out! Evicting from cluster."
+                )
+
+                if dead_node in self.peers:
+                    self.peers.remove(dead_node)
+                if dead_node in self.peer_last_seen:
+                    del self.peer_last_seen[dead_node]
+
+                if dead_node in self.proxy_leaders:
+                    self.proxy_leaders.remove(dead_node)
+
+            self.weight_manager = WeightManager([self.node_id] + self.peers)
+
+            self._appoint_proxies()
+
+        for peer in self.proxy_leaders if self.proxy_leaders else self.peers:
+
+            next_idx = self.next_index.get(peer, len(self.log))
+
+            prev_index = next_idx - 1
+            prev_term = (
+                self.log[prev_index].term
+                if prev_index >= 0 and prev_index < len(self.log)
+                else 0
+            )
+
+            entries = self.log[next_idx:]
+
+            self.send_message(
+                Message(
+                    type=MessageType.APPEND_ENTRIES,
+                    term=self.current_term,
+                    source=self.node_id,
+                    destination=peer,
+                    prev_log_index=prev_index,
+                    prev_log_term=prev_term,
+                    entries=entries,
+                    leader_commit=self.commit_index,
+                )
+            )
+
     def _update_commit_index(self):
 
         for i in range(len(self.log) - 1, self.commit_index, -1):
@@ -519,38 +483,62 @@ class ConsensusNode:
                 self.apply_committed_entries()
                 break
 
-    # =====================================================
-    # Apply
-    # =====================================================
     def apply_committed_entries(self):
 
         while self.last_applied < self.commit_index:
             self.last_applied += 1
             entry = self.log[self.last_applied]
             print(f"[{self.node_id}] APPLIED: {entry.command}")
+            if self.on_commit_callback:
 
-# =====================================================
-    # Handle Proxy Assignment
-    # =====================================================
+                self.on_commit_callback(entry.command)
+
+        self.compact_log()
+
     def handle_proxy_append(self, message: Message):
         """
-        Handles the PROXY_APPEND message sent by the leader 
+        Handles the PROXY_APPEND message sent by the leader
         to assign this node as a proxy.
         """
-        # Ignore outdated terms
+
         if message.term < self.current_term:
             return
 
-        # Update term if the message is from a newer term
         if message.term > self.current_term:
             self.current_term = message.term
             self.voted_for = None
             self.save_state()
 
-        # Update state to become a proxy
         self.role = NodeRole.PROXY
         self.leader_id = message.source
         self.proxy_nodes = message.proxy_nodes
         self.last_heartbeat = time.time()
 
-        print(f"[{self.node_id}] 🛡️ Appointed as PROXY by {self.leader_id} for nodes: {self.proxy_nodes}")
+        print(
+            f"[{self.node_id}] 🛡️ Appointed as PROXY by {self.leader_id} for nodes: {self.proxy_nodes}"
+        )
+
+    def compact_log(self):
+        """
+        Prevents Out-Of-Memory (OOM) crashes by deleting the heavy container
+        payloads from old, finalized log entries, while keeping the array
+        size intact so Raft's index math doesn't break.
+        """
+        MAX_RETAINED_LOGS = 50
+
+        if len(self.log) > MAX_RETAINED_LOGS:
+
+            safe_wipe_index = self.commit_index - MAX_RETAINED_LOGS
+
+            compaction_occurred = False
+
+            for i in range(safe_wipe_index):
+                if self.log[i].command != "COMPACTED":
+                    self.log[i].command = "COMPACTED"
+                    compaction_occurred = True
+
+            if compaction_occurred:
+                print(
+                    f"[{self.node_id}] 🗜️ Log compacted. Cleaned up payloads before index {safe_wipe_index}."
+                )
+                self.save_state()

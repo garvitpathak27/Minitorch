@@ -1,0 +1,276 @@
+🚀 Starting node1 on port 5001...
+ * Serving Flask app 'main'
+ * Debug mode: off
+🚀 Starting node2 on port 5002...
+ * Serving Flask app 'main'
+ * Debug mode: off
+🚀 Starting node3 on port 5003...
+ * Serving Flask app 'main'
+ * Debug mode: off
+[node2] 🛡️ Appointed as PROXY by node1 for nodes: ['node3']
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] APPLIED: {'action': 'create_workload', 'id': 'test-sleep', 'image_path': 'ubuntu', 'replicas': 2, 'command': ['/bin/sleep', '3600']}
+[node2] 🌉 Control Plane received committed command: {'action': 'create_workload', 'id': 'test-sleep', 'image_path': 'ubuntu', 'replicas': 2, 'command': ['/bin/sleep', '3600']}
+[State] 📥 Registered desired workload: test-sleep (2 replicas)
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] 🛡️ Appointed as PROXY by node1 for nodes: ['node3']
+[node2] APPLIED: {'action': 'register_node', 'node_id': 'node1', 'address': '127.0.0.1:5001'}
+[node2] 🌉 Control Plane received committed command: {'action': 'register_node', 'node_id': 'node1', 'address': '127.0.0.1:5001'}
+[State] 🖥️ Registered/Updated worker node: node1
+[node2] forwarding → node3
+[node2] aggregated response → leader
+🔄 [Reconciler] Workload test-sleep -> Desired: 2 | Actual: 0
+✅ [Reconciler] Started container cff7732d on node node1
+[node2] forwarding → node3
+[node2] forwarding → node3
+[node2] aggregated response → leader
+✅ [Reconciler] Started container dde0dc30 on node node1
+[node2] aggregated response → leader
+[node2] APPLIED: {'action': 'register_node', 'node_id': 'node2', 'address': '127.0.0.1:5002'}
+[node2] 🌉 Control Plane received committed command: {'action': 'register_node', 'node_id': 'node2', 'address': '127.0.0.1:5002'}
+[State] 🖥️ Registered/Updated worker node: node2
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] APPLIED: {'action': 'register_node', 'node_id': 'node3', 'address': '127.0.0.1:5003'}
+[node2] 🌉 Control Plane received committed command: {'action': 'register_node', 'node_id': 'node3', 'address': '127.0.0.1:5003'}
+[State] 🖥️ Registered/Updated worker node: node3
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] APPLIED: {'action': 'register_node', 'node_id': 'node1', 'address': '127.0.0.1:5001'}
+[node2] 🌉 Control Plane received committed command: {'action': 'register_node', 'node_id': 'node1', 'address': '127.0.0.1:5001'}
+[State] 🖥️ Registered/Updated worker node: node1
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] APPLIED: {'action': 'register_node', 'node_id': 'node2', 'address': '127.0.0.1:5002'}
+[node2] 🌉 Control Plane received committed command: {'action': 'register_node', 'node_id': 'node2', 'address': '127.0.0.1:5002'}
+[State] 🖥️ Registered/Updated worker node: node2
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] APPLIED: {'action': 'register_node', 'node_id': 'node3', 'address': '127.0.0.1:5003'}
+[node2] 🌉 Control Plane received committed command: {'action': 'register_node', 'node_id': 'node3', 'address': '127.0.0.1:5003'}
+[State] 🖥️ Registered/Updated worker node: node3
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader
+[node2] forwarding → node3
+[node2] aggregated response → leader[node3] APPLIED: {'action': 'create_workload', 'id': 'test-sleep', 'image_path': 'ubuntu', 'replicas': 2, 'command': ['/bin/sleep', '3600']}
+[node3] 🌉 Control Plane received committed command: {'action': 'create_workload', 'id': 'test-sleep', 'image_path': 'ubuntu', 'replicas': 2, 'command': ['/bin/sleep', '3600']}
+[State] 📥 Registered desired workload: test-sleep (2 replicas)
+[node3] APPLIED: {'action': 'register_node', 'node_id': 'node1', 'address': '127.0.0.1:5001'}
+[node3] 🌉 Control Plane received committed command: {'action': 'register_node', 'node_id': 'node1', 'address': '127.0.0.1:5001'}
+[State] 🖥️ Registered/Updated worker node: node1
+[node3] APPLIED: {'action': 'register_node', 'node_id': 'node2', 'address': '127.0.0.1:5002'}
+[node3] 🌉 Control Plane received committed command: {'action': 'register_node', 'node_id': 'node2', 'address': '127.0.0.1:5002'}
+[State] 🖥️ Registered/Updated worker node: node2
+🔄 [Reconciler] Workload test-sleep -> Desired: 2 | Actual: 0
+✅ [Reconciler] Started container 4b795267 on node node1
+✅ [Reconciler] Started container c4e86f9b on node node2
+[node3] APPLIED: {'action': 'register_node', 'node_id': 'node3', 'address': '127.0.0.1:5003'}
+[node3] 🌉 Control Plane received committed command: {'action': 'register_node', 'node_id': 'node3', 'address': '127.0.0.1:5003'}
+[State] 🖥️ Registered/Updated worker node: node3
+[node3] APPLIED: {'action': 'register_node', 'node_id': 'node1', 'address': '127.0.0.1:5001'}
+[node3] 🌉 Control Plane received committed command: {'action': 'register_node', 'node_id': 'node1', 'address': '127.0.0.1:5001'}
+[State] 🖥️ Registered/Updated worker node: node1
+[node3] APPLIED: {'action': 'register_node', 'node_id': 'node2', 'address': '127.0.0.1:5002'}
+[node3] 🌉 Control Plane received committed command: {'action': 'register_node', 'node_id': 'node2', 'address': '127.0.0.1:5002'}
+[State] 🖥️ Registered/Updated worker node: node2
+[node3] APPLIED: {'action': 'register_node', 'node_id': 'node3', 'address': '127.0.0.1:5003'}
+[node3] 🌉 Control Plane received committed command: {'action': 'register_node', 'node_id': 'node3', 'address': '127.0.0.1:5003'}
+[State] 🖥️ Registered/Updated worker node: node3
+[node1] 🚀 BECAME LEADER
+[node1] vote from node2 → True
+[node1] START election | term=1
+[node1] appended {'action': 'create_workload', 'id': 'test-sleep', 'image_path': 'ubuntu', 'replicas': 2, 'command': ['/bin/sleep', '3600']}
+[node1] COMMITTED index 0
+[node1] APPLIED: {'action': 'create_workload', 'id': 'test-sleep', 'image_path': 'ubuntu', 'replicas': 2, 'command': ['/bin/sleep', '3600']}
+[node1] 🌉 Control Plane received committed command: {'action': 'create_workload', 'id': 'test-sleep', 'image_path': 'ubuntu', 'replicas': 2, 'command': ['/bin/sleep', '3600']}
+[State] 📥 Registered desired workload: test-sleep (2 replicas)
+🔄 [Reconciler] Workload test-sleep -> Desired: 2 | Actual: 0
+❌ [Reconciler] No alive nodes available to schedule!
+[node1] appended {'action': 'register_node', 'node_id': 'node1', 'address': '127.0.0.1:5001'}
+[node1] COMMITTED index 1
+[node1] APPLIED: {'action': 'register_node', 'node_id': 'node1', 'address': '127.0.0.1:5001'}
+[node1] 🌉 Control Plane received committed command: {'action': 'register_node', 'node_id': 'node1', 'address': '127.0.0.1:5001'}
+[State] 🖥️ Registered/Updated worker node: node1
+[node1] ⚠️ Peer node3 timed out! Evicting from cluster.
+[node1] appended {'action': 'register_node', 'node_id': 'node2', 'address': '127.0.0.1:5002'}
+[node1] COMMITTED index 2
+[node1] APPLIED: {'action': 'register_node', 'node_id': 'node2', 'address': '127.0.0.1:5002'}
+[node1] 🌉 Control Plane received committed command: {'action': 'register_node', 'node_id': 'node2', 'address': '127.0.0.1:5002'}
+[State] 🖥️ Registered/Updated worker node: node2
+[node1] appended {'action': 'register_node', 'node_id': 'node3', 'address': '127.0.0.1:5003'}
+[node1] COMMITTED index 3
+[node1] APPLIED: {'action': 'register_node', 'node_id': 'node3', 'address': '127.0.0.1:5003'}
+[node1] 🌉 Control Plane received committed command: {'action': 'register_node', 'node_id': 'node3', 'address': '127.0.0.1:5003'}
+[State] 🖥️ Registered/Updated worker node: node3
+🔄 [Reconciler] Workload test-sleep -> Desired: 2 | Actual: 0
+✅ [Reconciler] Started container a7f397b2 on node node1
+✅ [Reconciler] Started container 368dcfc0 on node node2
+[node1] appended {'action': 'register_node', 'node_id': 'node1', 'address': '127.0.0.1:5001'}
+[node1] COMMITTED index 4
+[node1] APPLIED: {'action': 'register_node', 'node_id': 'node1', 'address': '127.0.0.1:5001'}
+[node1] 🌉 Control Plane received committed command: {'action': 'register_node', 'node_id': 'node1', 'address': '127.0.0.1:5001'}
+[State] 🖥️ Registered/Updated worker node: node1
+[node1] appended {'action': 'register_node', 'node_id': 'node2', 'address': '127.0.0.1:5002'}
+[node1] COMMITTED index 5
+[node1] APPLIED: {'action': 'register_node', 'node_id': 'node2', 'address': '127.0.0.1:5002'}
+[node1] 🌉 Control Plane received committed command: {'action': 'register_node', 'node_id': 'node2', 'address': '127.0.0.1:5002'}
+[State] 🖥️ Registered/Updated worker node: node2
+[node1] appended {'action': 'register_node', 'node_id': 'node3', 'address': '127.0.0.1:5003'}
+[node1] COMMITTED index 6
+[node1] APPLIED: {'action': 'register_node', 'node_id': 'node3', 'address': '127.0.0.1:5003'}
+[node1] 🌉 Control Plane received committed command: {'action': 'register_node', 'node_id': 'node3', 'address': '127.0.0.1:5003'}
+[State] 🖥️ Registered/Updated worker node: node3
+
+Cluster started. Ctrl+C to stop.

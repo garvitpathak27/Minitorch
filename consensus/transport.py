@@ -27,30 +27,23 @@ class ConsensusTransport:
         self.node = node
         self.address_map = address_map
 
-    # =====================================================
-    # Send message (RPC)
-    # =====================================================
     def send_message(self, message: Message):
 
         url = f"{self.address_map[message.destination]}/message"
 
-        # ---- Cabinet: track send time
         self.node.rpc_start_times[message.destination] = time.time()
 
         try:
             response = requests.post(url, json=self._serialize(message), timeout=1)
 
-            # ---- If response exists → process it
             if response and response.content:
 
                 data = response.json()
                 reply_msg = self._deserialize(data)
 
-                # ---- Cabinet: record latency
                 start = self.node.rpc_start_times.get(reply_msg.source, time.time())
                 self.node.weight_manager.record_response(reply_msg.source, start)
 
-                # ---- Route response to node logic
                 if reply_msg.type == MessageType.REQUEST_VOTE_RESPONSE:
                     self.node.handle_vote_response(reply_msg)
 
@@ -58,16 +51,13 @@ class ConsensusTransport:
                     self.node.handle_append_entries_response(reply_msg)
 
                 elif reply_msg.type == MessageType.PROXY_APPEND_RESPONSE:
-                    # ✅ NEW: proxy aggregation handling
+
                     self.node.handle_append_entries_response(reply_msg)
 
         except Exception:
-            # In real system → retry / logging
+
             pass
 
-    # =====================================================
-    # Serialize Message → JSON
-    # =====================================================
     def _serialize(self, message: Message):
 
         return {
@@ -90,9 +80,6 @@ class ConsensusTransport:
             "metadata": message.metadata,
         }
 
-    # =====================================================
-    # Deserialize JSON → Message
-    # =====================================================
     def _deserialize(self, data: dict) -> Message:
 
         return Message(
@@ -115,37 +102,26 @@ class ConsensusTransport:
             metadata=data.get("metadata", {}),
         )
 
-    # =====================================================
-    # Handle incoming message
-    # =====================================================
     def handle_message(self, data: dict):
 
         message = self._deserialize(data)
 
-        # ---- Vote request
         if message.type == MessageType.REQUEST_VOTE:
             return self._serialize(self.node.handle_vote_request(message))
 
-        # ---- AppendEntries (heartbeat / replication)
         elif message.type == MessageType.APPEND_ENTRIES:
             return self._serialize(self.node.handle_append_entries(message))
 
-        # ---- Proxy assignment (RaftOptima)
         elif message.type == MessageType.PROXY_APPEND:
-            # ✅ NEW: activate proxy mode
+
             self.node.handle_proxy_append(message)
             return None
 
-        # ---- Other messages → ignore for now
         return None
 
 
-# =====================================================
-# Flask API
-# =====================================================
 def register_consensus_routes(app: Flask, transport: ConsensusTransport):
 
-    # ---- Internal RPC endpoint
     @app.route("/message", methods=["POST"])
     def receive_message():
 
@@ -156,7 +132,6 @@ def register_consensus_routes(app: Flask, transport: ConsensusTransport):
 
         return "", 200
 
-    # ---- Client endpoint
     @app.route("/submit", methods=["POST"])
     def submit():
 
@@ -165,7 +140,6 @@ def register_consensus_routes(app: Flask, transport: ConsensusTransport):
 
         node = transport.node
 
-        # ---- Leader handles directly
         if node.role == NodeRole.LEADER:
             return jsonify(
                 {
@@ -175,7 +149,6 @@ def register_consensus_routes(app: Flask, transport: ConsensusTransport):
                 }
             )
 
-        # ---- Follower redirects
         if node.leader_id:
             leader_url = transport.address_map[node.leader_id]
 
