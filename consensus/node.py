@@ -223,17 +223,20 @@ class ConsensusNode:
             )
 
     def submit_command(self, command):
-
+        """
+        Requirement from Problem D: Appends command to log if leader and replicates.
+        """
         if self.role != NodeRole.LEADER:
             return False
 
-        entry = LogEntry(self.current_term, len(self.log), command)
+        # Create the log entry (assuming LogEntry class exists in your project)
+        new_index = len(self.log)
+        entry = LogEntry(term=self.current_term, index=new_index, command=command)
+        
         self.log.append(entry)
-        self.save_state()
-
-        print(f"[{self.node_id}] appended {command}")
-
-        self.replicate_log()
+        self.save_state()  # Ensure state is persisted
+        self.send_heartbeats() # Immediate replication trigger
+        
         return True
 
     def replicate_log(self):

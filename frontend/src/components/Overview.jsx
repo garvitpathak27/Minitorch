@@ -1,40 +1,13 @@
 import React from 'react';
-import { Activity, Play, Server, ShieldAlert } from 'lucide-react';
+import { ShieldAlert } from 'lucide-react';
 
 export default function Overview({ clusterState, nodeContainers, logs, addLog }) {
-  
-  const deployWorkload = async () => {
-    addLog("Initiating Ubuntu deployment (2 Replicas)...", "info");
-    try {
-      await fetch(`http://127.0.0.1:5001/submit`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          command: { action: "create_workload", id: "ubuntu-sleep", image_path: "/tmp/ubuntu", replicas: 2, command: ["/bin/sleep", "3600"] }
-        })
-      });
-    } catch (e) {
-      addLog("Failed to contact leader node.", "error");
-    }
-  };
-
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
       
       {/* LEFT COLUMN: COMMAND & CONTROL */}
       <div className="lg:col-span-1 space-y-6">
         
-        {/* Deploy Card */}
-        <div className="bg-[#171d1e] border border-[#303638] p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <Play className="w-5 h-5 text-[#4edea3]" />
-            <h2 className="text-lg font-semibold text-[#dee3e6]">Quick Deploy</h2>
-          </div>
-          <button onClick={deployWorkload} className="w-full py-3 bg-[#00a572] hover:bg-[#4edea3] text-[#00311f] font-bold tracking-widest text-xs uppercase transition-colors rounded-sm">
-            Deploy Workload
-          </button>
-        </div>
-
         {/* Terminal Log */}
         <div className="bg-[#090f11] border border-[#303638] flex flex-col h-[500px]">
           <div className="bg-[#1b2122] px-3 py-2 flex items-center justify-between border-b border-[#303638]">
@@ -60,7 +33,15 @@ export default function Overview({ clusterState, nodeContainers, logs, addLog })
       {/* RIGHT COLUMN: THE NODE MAP */}
       <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-6">
         {Object.keys(clusterState.nodes).map(nodeId => {
-          const isAlive = clusterState.nodes[nodeId].alive;
+          const nodeMeta = clusterState.nodes[nodeId] || {};
+          const isAlive = nodeMeta.alive;
+          const nodeRole = nodeMeta.role || (nodeId === clusterState.leader ? 'Leader' : 'Follower');
+          const logIndex = nodeMeta.log_index ?? nodeMeta.logIndex ?? 'N/A';
+          const roleClasses = nodeRole === 'Leader'
+            ? 'bg-[#5b3200] text-[#ffb873] border-[#ffb873]/30'
+            : nodeRole === 'Proxy'
+              ? 'bg-[#0b2a36] text-[#4cd7f6] border-[#4cd7f6]/30'
+              : 'bg-[#1b2122] text-[#869397] border-[#303638]';
           const containers = nodeContainers[nodeId] || [];
           
           return (
@@ -80,11 +61,9 @@ export default function Overview({ clusterState, nodeContainers, logs, addLog })
                     </span>
                   </div>
                 </div>
-                {nodeId === clusterState.leader && isAlive && (
-                  <div className="bg-[#5b3200] text-[#ffb873] border border-[#ffb873]/30 px-2 py-1 font-mono text-[9px] flex items-center gap-1 uppercase tracking-widest">
-                    Raft Leader
-                  </div>
-                )}
+                <div className={`border px-2 py-1 font-mono text-[9px] flex items-center gap-1 uppercase tracking-widest ${roleClasses}`}>
+                  {nodeRole}
+                </div>
               </div>
 
               {/* Node Body (Containers) */}
@@ -92,6 +71,16 @@ export default function Overview({ clusterState, nodeContainers, logs, addLog })
                 {isAlive ? (
                   <>
                     <div className="font-mono text-[9px] text-[#869397] mb-3 uppercase tracking-widest">Active Namespaces ({containers.length})</div>
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div className="bg-[#1b2122] border border-[#303638] px-2 py-2">
+                        <div className="text-[9px] uppercase tracking-widest text-[#869397]">Raft Term</div>
+                        <div className="font-mono text-xs text-[#ffb873] mt-1">{clusterState.term}</div>
+                      </div>
+                      <div className="bg-[#1b2122] border border-[#303638] px-2 py-2">
+                        <div className="text-[9px] uppercase tracking-widest text-[#869397]">Log Index</div>
+                        <div className="font-mono text-xs text-[#4cd7f6] mt-1">{logIndex}</div>
+                      </div>
+                    </div>
                     {containers.map(c => (
                       <div key={c.id} className="flex items-center justify-between p-3 bg-[#252b2d] border border-[#303638]">
                         <div className="flex flex-col">

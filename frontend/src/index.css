@@ -4,7 +4,7 @@
 
 @layer base {
   body {
-    @apply bg-[#0e1416] text-[#dee3e6];
+    @apply bg-[#090f11] text-[#dee3e6];
   }
 }
 
@@ -17,9 +17,4 @@
 @keyframes pulse-status {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.5; transform: scale(1.1); }
-}
-
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: #090f11; }
-::-webkit-scrollbar-thumb { background: #303638; border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: #4cd7f6; }
+}  
