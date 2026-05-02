@@ -1,125 +1,92 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react';
+import { Activity, Box, Server, Skull, Terminal, Play, AlertTriangle } from 'lucide-react';
+import Overview from './components/Overview';
+import Chaos from './components/Chaos';
+import Telemetry from './components/Telemetry';
 
-function App() {
-  const [nodes, setNodes] = useState([])
-  const [workloads, setWorkloads] = useState([])
-  
-  // Form state
-  const [imagePath, setImagePath] = useState('/tmp/testroot')
-  const [command, setCommand] = useState('sleep 30')
-  const [replicas, setReplicas] = useState(1)
+export default function App() {
+  const [activeTab, setActiveTab] = useState('overview');
+  const [clusterState, setClusterState] = useState(null);
+  const [nodeContainers, setNodeContainers] = useState({});
+  const [logs, setLogs] = useState([]);
 
-  // Poll the backend every 2 seconds
+  // HARDCODED PORTS FOR YOUR PYTHON BACKEND
+  const CONTROL_PLANE_URL = "http://127.0.0.1:5001";
+  const WORKER_PORTS = [5001, 5002, 5003];
+
+  const addLog = (msg, type = "info") => {
+    setLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 15));
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchState = async () => {
       try {
-        const nodesRes = await fetch('http://localhost:6001/nodes')
-        const nodesData = await nodesRes.json()
-        setNodes(nodesData)
+        const cpRes = await fetch(`${CONTROL_PLANE_URL}/cluster_state`);
+        const cpData = await cpRes.json();
+        setClusterState(cpData);
 
-        const wlRes = await fetch('http://localhost:6001/workloads')
-        const wlData = await wlRes.json()
-        setWorkloads(wlData)
-      } catch (err) {
-        console.error("Failed to fetch data. Is the control plane running?")
+        let containers = {};
+        for (const port of WORKER_PORTS) {
+          try {
+            const res = await fetch(`http://127.0.0.1:${port}/containers`);
+            const data = await res.json();
+            containers[`node${port - 5000}`] = data;
+          } catch (e) {
+            containers[`node${port - 5000}`] = [];
+          }
+        }
+        setNodeContainers(containers);
+      } catch (error) {
+        // Prevent spamming the logs if the backend is off
+        if (logs.length === 0 || !logs[0].includes("Connection lost")) {
+          addLog(`Connection to Control Plane lost...`, "error");
+        }
       }
-    }
+    };
 
-    fetchData()
-    const interval = setInterval(fetchData, 2000)
-    return () => clearInterval(interval)
-  }, [])
+    fetchState();
+    const interval = setInterval(fetchState, 2000);
+    return () => clearInterval(interval);
+  }, []);
 
-  const submitWorkload = async (e) => {
-    e.preventDefault()
-    await fetch('http://localhost:6001/workloads', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        image_path: imagePath,
-        command: command.split(' '),
-        replicas: parseInt(replicas)
-      })
-    })
-  }
-
-  // Helper to check if node is dead (no heartbeat for 30s)
-  const isNodeAlive = (lastSeen) => {
-    const now = Date.now() / 1000 // Convert JS ms to Python seconds
-    return (now - lastSeen) < 30
-  }
+  if (!clusterState) return <div className="flex h-screen items-center justify-center text-[#869397] bg-[#0e1416] font-mono text-sm tracking-widest uppercase">Waiting for Control Plane connection...</div>;
 
   return (
-    <div style={{ padding: '20px', fontFamily: 'system-ui' }}>
-      <h1>MiniOrch Dashboard</h1>
+    <div className="min-h-screen bg-[#0e1416] text-[#dee3e6] p-6 font-sans">
       
-      <div style={{ display: 'flex', gap: '20px' }}>
+      {/* GLOBAL HEADER */}
+      <header className="flex justify-between items-center mb-8 border-b border-[#303638] pb-4">
+        <div className="flex items-center gap-4">
+          <Box className="w-8 h-8 text-[#4cd7f6]" />
+          <h1 className="text-2xl font-bold tracking-tight text-white uppercase tracking-tighter">MiniOrch_V1</h1>
+          <div className="flex items-center gap-2 px-3 py-1 bg-[#004e5c]/30 text-[#4cd7f6] text-xs rounded border border-[#00687a]/50 font-mono ml-4">
+            <span className="opacity-70">TERM:</span> {clusterState.term} 
+            <span className="mx-2 opacity-30">|</span> 
+            <span className="opacity-70">LEADER:</span> {clusterState.leader || "ELECTING..."}
+          </div>
+        </div>
         
-        {/* LEFT COLUMN: Submit Workloads */}
-        <div style={{ flex: 1, padding: '20px', border: '1px solid #ccc' }}>
-          <h2>Deploy Workload</h2>
-          <form onSubmit={submitWorkload} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <label>
-              Image: <input value={imagePath} onChange={e => setImagePath(e.target.value)} />
-            </label>
-            <label>
-              Command: <input value={command} onChange={e => setCommand(e.target.value)} />
-            </label>
-            <label>
-              Replicas: <input type="number" value={replicas} onChange={e => setReplicas(e.target.value)} min="1" />
-            </label>
-            <button type="submit" style={{ padding: '10px', background: '#007bff', color: 'white', border: 'none' }}>
-              Deploy
-            </button>
-          </form>
+        {/* TAB NAVIGATION */}
+        <div className="flex gap-2 bg-[#1b2122] p-1 rounded border border-[#303638]">
+          <button onClick={() => setActiveTab('overview')} className={`px-4 py-2 rounded-sm text-sm font-medium transition-colors ${activeTab === 'overview' ? 'bg-[#00687a] text-white' : 'text-[#869397] hover:text-white'}`}>
+            Overview
+          </button>
+          <button onClick={() => setActiveTab('chaos')} className={`px-4 py-2 rounded-sm text-sm font-medium transition-colors flex items-center gap-2 ${activeTab === 'chaos' ? 'bg-[#93000a] text-[#ffdad6]' : 'text-[#869397] hover:text-white'}`}>
+            <Skull className="w-4 h-4"/> Chaos Studio
+          </button>
+          <button onClick={() => setActiveTab('hood')} className={`px-4 py-2 rounded-sm text-sm font-medium transition-colors flex items-center gap-2 ${activeTab === 'hood' ? 'bg-[#5b3200] text-[#ffdcbf]' : 'text-[#869397] hover:text-white'}`}>
+            <Terminal className="w-4 h-4"/> Telemetry
+          </button>
         </div>
+      </header>
 
-        {/* MIDDLE COLUMN: Desired State */}
-        <div style={{ flex: 1, padding: '20px', border: '1px solid #ccc' }}>
-          <h2>Workloads (Desired State)</h2>
-          {workloads.map(wl => {
-            // Count how many containers are actually running for this workload across all nodes
-            const actual = nodes.reduce((total, node) => {
-              return total + node.containers.filter(c => c.startsWith(wl.id)).length
-            }, 0)
+      {/* RENDER ACTIVE SCREEN */}
+      <main>
+        {activeTab === 'overview' && <Overview clusterState={clusterState} nodeContainers={nodeContainers} logs={logs} addLog={addLog} />}
+        {activeTab === 'chaos' && <Chaos nodeContainers={nodeContainers} addLog={addLog} />}
+        {activeTab === 'hood' && <Telemetry clusterState={clusterState} nodeContainers={nodeContainers} />}
+      </main>
 
-            return (
-              <div key={wl.id} style={{ marginBottom: '10px', padding: '10px', background: '#f8f9fa' }}>
-                <strong>ID:</strong> {wl.id} <br/>
-                <strong>Status:</strong> {actual} / {wl.replicas} Replicas Running
-              </div>
-            )
-          })}
-        </div>
-
-        {/* RIGHT COLUMN: Actual State (Nodes) */}
-        <div style={{ flex: 2, padding: '20px', border: '1px solid #ccc' }}>
-          <h2>Cluster Nodes (Actual State)</h2>
-          {nodes.map(node => {
-            const alive = isNodeAlive(node.last_seen)
-            return (
-              <div key={node.id} style={{ marginBottom: '15px', padding: '10px', borderLeft: `5px solid ${alive ? 'green' : 'red'}` }}>
-                <strong>{node.id}</strong> ({node.address}) - 
-                <span style={{ color: alive ? 'green' : 'red', marginLeft: '10px' }}>
-                  {alive ? 'HEALTHY' : 'DEAD'}
-                </span>
-                
-                <div style={{ marginTop: '10px' }}>
-                  <strong>Containers:</strong>
-                  {node.containers.length === 0 ? ' None' : (
-                    <ul>
-                      {node.containers.map(c => <li key={c}>{c}</li>)}
-                    </ul>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-
-      </div>
     </div>
-  )
+  );
 }
-
-export default App

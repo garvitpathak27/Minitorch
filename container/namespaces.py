@@ -15,6 +15,8 @@ function 3
 """
 
 import os
+from utils.syscalls import unshare, sethostname, mount, MS_PRIVATE, MS_REC, CLONE_NEWPID, CLONE_NEWUTS, CLONE_NEWNS, CLONE_NEWNET, CLONE_NEWIPC
+
 import sys
 from utils.syscalls import (
     unshare,
@@ -27,15 +29,16 @@ from utils.syscalls import (
 )
 
 
-def setup_namespaces(container_id: str) -> None:
-    # create all 5 namespaces at once using bitwise OR to combine flags
-    # this isolates the container from the host for PID, UTS, MNT, NET, IPC
-    # NOTE: CLONE_NEWPID only affects CHILDREN of this process, not this process itself
+def setup_namespaces(container_id: str):
+    # 1. Carve out the namespaces
     unshare(CLONE_NEWUTS | CLONE_NEWPID | CLONE_NEWNS | CLONE_NEWNET | CLONE_NEWIPC)
-
-    # set hostname to container id inside the UTS namespace
-    # this is why docker containers show their container id as hostname
-    sethostname(container_id)
+    
+    # 2. THE GHOST VOLUME FIX: Make all mounts in this namespace completely private!
+    # This stops the mounts from leaking back out to the host's Ubuntu File Manager.
+    mount(b"none", b"/", b"", MS_REC | MS_PRIVATE, None)
+    
+    # 3. Set the isolated hostname
+    sethostname(f"container-{container_id[:6]}")
 
 
 def setup_rootfs(rootfs_path: str) -> None:
